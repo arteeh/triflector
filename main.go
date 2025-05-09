@@ -104,7 +104,9 @@ func main() {
 				handleAccessRequest(event)
 
 				if env("AUTH_RESTRICT_USER", "true") == "true" && !isAllowed(event.PubKey) {
-					return true, "restricted: failed to validate invite code"
+					return true, "restricted: please vist https://example.com/invoicenumber to get access to this community, or pay this invoice: lnbc1u1p5ph54wdqqnp4q03mm58csgq8xavn9adznulyft48rshyzdyrg0txv0wzft3gvqyg7pp5ddxftarnjv5meqemvafcuuvrre506uztvz43nfyt2vxfrq2yhfussp59u5xq7hthtsj29209larjdr9n4a4e7ep36rmc34f0lyg9er4fkxs9qyysgqcqpcxqyz5vqrzjqw9fu4j39mycmg440ztkraa03u5qhtuc5zfgydsv6ml38qd4azymlapyqqqqqqqzgqqqqqlgqqqq86qqjqrzjqvdnqyc82a9maxu6c7mee0shqr33u4z9z04wpdwhf96gxzpln8jcrapyqqqqqqp33cqqqqqqqqqqqqqq2qflhjnzhzjm48trgy0y7xqx20luvcezzcdnqm7a8prpfsdv2e2gjs2amegz53r0vj8fhzvkflndxenp0uetqwkvc53ue8xvvsz9qjjqcqrthlrk"
+
+					// return true, "restricted: failed to validate invite code"
 				}
 
 				return false, ""
