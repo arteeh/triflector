@@ -17,7 +17,7 @@ func HasAccessUsingWhitelist(pubkey string) bool {
 }
 
 func HasAccessUsingClaim(pubkey string) bool {
-	return len(getUserClaims(pubkey)) > 0
+	return len(GetUserClaims(pubkey)) > 0
 }
 
 type BackendAccess struct {

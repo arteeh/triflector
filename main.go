@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-  "frith/common"
+	"frith/common"
 	eventstore "github.com/fiatjaf/eventstore/badger"
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/blossom"
@@ -34,7 +34,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-  // Run GC
+	// Run GC
 	ticker := time.NewTicker(5 * time.Minute)
 	go func() {
 		for {
@@ -70,9 +70,12 @@ func main() {
 
 	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 	relay.StoreEvent = append(relay.StoreEvent, backend.SaveEvent)
+	relay.StoreEvent = append(relay.StoreEvent, common.SaveEvent)
 	relay.DeleteEvent = append(relay.DeleteEvent, backend.DeleteEvent)
+	relay.QueryEvents = append(relay.QueryEvents, common.GenerateGroupEvents)
+	relay.QueryEvents = append(relay.QueryEvents, common.GenerateInviteEvents)
 	relay.QueryEvents = append(relay.QueryEvents, backend.QueryEvents)
-	relay.QueryEvents = append(relay.QueryEvents, common.QueryEvents)
+	relay.RejectEvent = append(relay.RejectEvent, common.RejectAccessRequest)
 	relay.RejectEvent = append(relay.RejectEvent, common.RejectEvent)
 	relay.RejectFilter = append(relay.RejectFilter, common.RejectFilter)
 
