@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -19,8 +20,6 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/afero"
 )
-
-var relay *khatru.Relay
 
 func main() {
 	common.SetupEnvironment()
@@ -55,12 +54,13 @@ func main() {
 	defer common.Db.Close()
 
 	// Set up our relay
-	relay = khatru.NewRelay()
+	relay := khatru.NewRelay()
 	relay.Info.Name = common.RELAY_NAME
 	relay.Info.Icon = common.RELAY_ICON
 	// relay.Info.Self = common.RELAY_SELF
 	relay.Info.PubKey = common.RELAY_ADMIN
 	relay.Info.Description = common.RELAY_DESCRIPTION
+	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
 
 	// Set up our relay backend
 	backend := &eventstore.BadgerBackend{Path: common.GetDataDir("events")}
@@ -70,13 +70,44 @@ func main() {
 
 	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 	relay.StoreEvent = append(relay.StoreEvent, backend.SaveEvent)
-	relay.StoreEvent = append(relay.StoreEvent, common.SaveEvent)
 	relay.DeleteEvent = append(relay.DeleteEvent, backend.DeleteEvent)
-	relay.QueryEvents = append(relay.QueryEvents, common.GenerateGroupEvents)
-	relay.QueryEvents = append(relay.QueryEvents, common.GenerateInviteEvents)
+
+	// Query events
 	relay.QueryEvents = append(relay.QueryEvents, backend.QueryEvents)
-	relay.RejectEvent = append(relay.RejectEvent, common.RejectAccessRequest)
+	relay.QueryEvents = append(relay.QueryEvents,
+		func(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+			ch := make(chan *nostr.Event)
+			pubkey := khatru.GetAuthed(ctx)
+
+			go func() {
+				defer close(ch)
+
+				if !common.HasAccess(pubkey) {
+					return
+				}
+
+				if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
+					for _, event := range common.GenerateGroupMetadataEvents(ctx, backend, filter) {
+						ch <- event
+					}
+				}
+
+				if common.GENERATE_CLAIMS && slices.Contains(filter.Kinds, common.AUTH_INVITE) {
+					for _, event := range common.GenerateInviteEvents(ctx, backend, filter) {
+						ch <- event
+					}
+				}
+			}()
+
+			return ch, nil
+		},
+	)
+
+	// Reject event
 	relay.RejectEvent = append(relay.RejectEvent, common.RejectEvent)
+	relay.RejectEvent = append(relay.RejectEvent, common.RejectAccessRequest)
+
+	// Reject filter
 	relay.RejectFilter = append(relay.RejectFilter, common.RejectFilter)
 
 	// Blossom

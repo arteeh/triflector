@@ -5,9 +5,24 @@ import (
 	"math/rand"
 )
 
-var AUTH_JOIN = 28934
 
-var AUTH_INVITE = 28935
+const (
+  AUTH_JOIN = 28934
+  AUTH_INVITE = 28935
+ //  PUT_USER = 9000
+ //  REMOVE_USER = 9001
+ //  EDIT_META = 9002
+ //  DELETE_EVENT = 9005
+ //  CREATE_GROUP = 9007
+ //  DELETE_GROUP = 9008
+ //  CREATE_INVITE = 9009
+ //  GROUP_JOIN = 9021
+ //  GROUP_LEAVE = 9022
+	// GROUP_META = 39000
+	// GROUP_ADMINS = 39001
+	// GROUP_MEMBERS = 39002
+	// GROUP_ROLES = 39003
+)
 
 func keys[K comparable, V any](m map[K]V) []K {
 	ks := make([]K, len(m))

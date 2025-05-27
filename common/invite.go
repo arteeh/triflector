@@ -1,10 +1,9 @@
 package common
 
 import (
-  "log"
   "context"
-  "slices"
 
+	eventstore "github.com/fiatjaf/eventstore/badger"
 	"github.com/fiatjaf/khatru"
 	"github.com/nbd-wtf/go-nostr"
 )
@@ -27,30 +26,19 @@ func ConsumeInvite(claim string) string {
 	return author
 }
 
-func GenerateInviteEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
-	ch := make(chan *nostr.Event)
+func GenerateInviteEvents(ctx context.Context, backend *eventstore.BadgerBackend, filter nostr.Filter) []*nostr.Event {
+	result := make([]*nostr.Event, 0)
   pubkey := khatru.GetAuthed(ctx)
+  claim := GenerateInvite(pubkey)
+	event := nostr.Event{
+		Kind:      AUTH_INVITE,
+		CreatedAt: nostr.Now(),
+		Tags: nostr.Tags{
+			nostr.Tag{"claim", claim},
+		},
+	}
 
-  go func() {
-    if GENERATE_CLAIMS && slices.Contains(filter.Kinds, AUTH_INVITE) && HasAccess(pubkey){
-      claim := GenerateInvite(pubkey)
-    	event := nostr.Event{
-    		Kind:      AUTH_INVITE,
-    		CreatedAt: nostr.Now(),
-    		Tags: nostr.Tags{
-    			nostr.Tag{"claim", claim},
-    		},
-    	}
+	event.Sign(RELAY_SECRET)
 
-    	if err := event.Sign(RELAY_SECRET); err != nil {
-    		log.Fatal("Failed to sign event:", err)
-    	} else {
-    		ch <- &event
-    	}
-
-    	close(ch)
-    }
-  }()
-
-  return ch, nil
+	return result
 }
