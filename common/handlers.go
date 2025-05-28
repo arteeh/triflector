@@ -164,6 +164,18 @@ func OnEventSaved(ctx context.Context, evt *nostr.Event) {
 			log.Println(err)
 		}
 	}
+
+	if evt.Kind == nostr.KindSimpleGroupCreateGroup {
+		HandleCreateGroup(evt)
+	}
+
+	if evt.Kind == nostr.KindSimpleGroupEditMetadata {
+		HandleEditMetadata(evt)
+	}
+
+	if evt.Kind == nostr.KindSimpleGroupDeleteGroup {
+		HandleDeleteGroup(evt)
+	}
 }
 
 // DeleteEvent

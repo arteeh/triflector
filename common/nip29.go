@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -9,7 +10,45 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
-// GetGroupIDFromEvent extracts the group ID from an event's h tag
+func GetGroup(h string) (*nip29.Group, error) {
+	var group nip29.Group
+
+	err := json.Unmarshal(GetBytes("group", h), &group)
+
+	return &group, err
+}
+
+func PutGroup(group *nip29.Group) {
+	data, err := json.Marshal(group)
+	if err != nil {
+		log.Println(err)
+	}
+
+	PutBytes("group", group.Address.ID, data)
+}
+
+func DeleteGroup(h string) {
+	DeleteItem("group", h)
+}
+
+func ListGroups() []*nip29.Group {
+	var groups []*nip29.Group
+
+	for _, item := range ListItems("group") {
+		var group nip29.Group
+
+		err := json.Unmarshal([]byte(item), &group)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		groups = append(groups, &group)
+	}
+
+	return groups
+}
+
 func GetGroupIDFromEvent(event *nostr.Event) string {
 	hTag := event.Tags.GetFirst([]string{"h"})
 	if hTag == nil {
@@ -17,6 +56,10 @@ func GetGroupIDFromEvent(event *nostr.Event) string {
 	}
 
 	return hTag.Value()
+}
+
+func GetGroupFromEvent(event *nostr.Event) (*nip29.Group, error) {
+	return GetGroup(GetGroupIDFromEvent(event))
 }
 
 func IsGroupMember(ctx context.Context, h string, pubkey string) bool {
@@ -43,58 +86,21 @@ func IsGroupMember(ctx context.Context, h string, pubkey string) bool {
 	return false
 }
 
-func GenerateGroupMetadataEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
-	groups := make(map[string]*nip29.Group)
-	result := make([]*nostr.Event, 0)
-	thisFilter := nostr.Filter{
-		Kinds: []int{nostr.KindSimpleGroupCreateGroup, nostr.KindSimpleGroupDeleteGroup, nostr.KindSimpleGroupEditMetadata},
-		Tags:  nostr.TagMap{},
-	}
+func HandleCreateGroup(evt *nostr.Event) {
+	group, err := nip29.NewGroup(fmt.Sprintf("%s'%s", RELAY_URL, GetGroupIDFromEvent(evt)))
 
-	if filter.Tags["d"] != nil {
-		thisFilter.Tags["h"] = filter.Tags["d"]
-	}
-
-	events, err := backend.QueryEvents(ctx, thisFilter)
 	if err != nil {
-		log.Println(err)
+		PutGroup(&group)
 	}
-
-	for event := range events {
-		id := GetGroupIDFromEvent(event)
-
-		if event.Kind == nostr.KindSimpleGroupDeleteGroup {
-			delete(groups, id)
-		} else if _, ok := groups[id]; !ok {
-			group, err := nip29.NewGroup(fmt.Sprintf("%s'%s", RELAY_URL, id))
-
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			groups[id] = &group
-		}
-
-		if event.Kind == nostr.KindSimpleGroupEditMetadata {
-			EditMetadata(groups[id], event)
-		}
-	}
-
-	for _, group := range groups {
-		event := group.ToMetadataEvent()
-
-		if err := event.Sign(RELAY_SECRET); err != nil {
-			log.Println(err)
-		}
-
-		result = append(result, event)
-	}
-
-	return result
 }
 
-func EditMetadata(group *nip29.Group, evt *nostr.Event) {
+func HandleEditMetadata(evt *nostr.Event) {
+	group, err := GetGroupFromEvent(evt)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	group.LastMetadataUpdate = evt.CreatedAt
 	group.Name = group.Address.ID
 
@@ -114,6 +120,30 @@ func EditMetadata(group *nip29.Group, evt *nostr.Event) {
 	if tag := evt.Tags.GetFirst([]string{"closed"}); tag != nil {
 		group.Closed = true
 	}
+
+	PutGroup(group)
+}
+
+func HandleDeleteGroup(evt *nostr.Event) {
+	DeleteGroup(GetGroupIDFromEvent(evt))
+}
+
+func GenerateGroupMetadataEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
+	result := make([]*nostr.Event, 0)
+
+	for _, group := range ListGroups() {
+		event := group.ToMetadataEvent()
+
+		if filter.Matches(event) {
+			if err := event.Sign(RELAY_SECRET); err != nil {
+				log.Println(err)
+			}
+
+			result = append(result, event)
+		}
+	}
+
+	return result
 }
 
 func MakePutUserEvent(evt *nostr.Event) *nostr.Event {
