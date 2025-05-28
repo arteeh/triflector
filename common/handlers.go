@@ -29,19 +29,20 @@ func RejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg st
 
 func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event)
+	pubkey := khatru.GetAuthed(ctx)
 
 	go func() {
 		defer close(ch)
 
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
-			for _, evt := range GenerateGroupMetadataEvents(ctx, filter) {
-				ch <- evt
+			for _, event := range GenerateGroupMetadataEvents(ctx, filter) {
+				ch <- event
 			}
 		}
 
 		if RELAY_GENERATE_CLAIMS && slices.Contains(filter.Kinds, AUTH_INVITE) {
-			for _, evt := range GenerateInviteEvents(ctx, filter) {
-				ch <- evt
+			for _, event := range GenerateInviteEvents(ctx, filter) {
+				ch <- event
 			}
 		}
 
@@ -51,8 +52,12 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 			log.Println(err)
 		}
 
-		for evt := range upstream {
-			ch <- evt
+		for event := range upstream {
+			g := GetGroupFromEvent(event)
+
+			if g == nil || !g.Private || IsGroupMember(ctx, g.Address.ID, pubkey) {
+				ch <- event
+			}
 		}
 	}()
 
@@ -61,22 +66,22 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 
 // RejectEvent
 
-func RejectEvent(ctx context.Context, evt *nostr.Event) (reject bool, msg string) {
+func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	pubkey := khatru.GetAuthed(ctx)
 
 	if pubkey == "" {
 		return true, "auth-required: authentication is required for access"
 	}
 
-	// Process relay-level join requests first
-	if evt.Kind == AUTH_JOIN && evt.PubKey == pubkey {
-		tag := evt.Tags.GetFirst([]string{"claim"})
+	// Process relay-level join requests before anything else
+	if event.Kind == AUTH_JOIN && event.PubKey == pubkey {
+		tag := event.Tags.GetFirst([]string{"claim"})
 
 		if tag != nil {
 			claim := tag.Value()
 
 			if IsValidClaim(claim) || HasAccess(ConsumeInvite(claim)) {
-				AddUserClaim(evt.PubKey, claim)
+				AddUserClaim(event.PubKey, claim)
 			}
 
 			if !HasAccess(pubkey) {
@@ -85,17 +90,28 @@ func RejectEvent(ctx context.Context, evt *nostr.Event) (reject bool, msg string
 		}
 	}
 
-	// Restrict based on auth user
+	// Relay-level access
+
 	if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
 		return true, "restricted: you are not a member of this relay"
 	}
 
-	// Restrict based on event author
-	if RELAY_RESTRICT_AUTHOR && !HasAccess(evt.PubKey) {
+	if RELAY_RESTRICT_AUTHOR && !HasAccess(event.PubKey) {
 		return true, "restricted: event author is not a member of this relay"
 	}
 
-	// Group administration kinds are restricted
+	// Group-level access
+
+	h := GetGroupIDFromEvent(event)
+	g := GetGroup(h)
+
+	groupMetaKinds := []int{
+		nostr.KindSimpleGroupMetadata,
+		nostr.KindSimpleGroupAdmins,
+		nostr.KindSimpleGroupMembers,
+		nostr.KindSimpleGroupRoles,
+	}
+
 	groupAdminKinds := []int{
 		nostr.KindSimpleGroupPutUser,
 		nostr.KindSimpleGroupRemoveUser,
@@ -105,43 +121,44 @@ func RejectEvent(ctx context.Context, evt *nostr.Event) (reject bool, msg string
 		nostr.KindSimpleGroupDeleteGroup,
 	}
 
-	if slices.Contains(groupAdminKinds, evt.Kind) {
-		if !slices.Contains(RELAY_ADMINS, evt.PubKey) {
-			return true, "restricted: only relay admin can administer groups"
-		}
-
-		if GetGroupIDFromEvent(evt) == "" {
-			return true, "invalid: missing h tag"
-		}
+	groupRequestKinds := []int{
+		nostr.KindSimpleGroupJoinRequest,
+		nostr.KindSimpleGroupLeaveRequest,
 	}
 
-	// Generated events can't be published directly
-	groupMetaKinds := []int{
-		nostr.KindSimpleGroupMetadata,
-		nostr.KindSimpleGroupAdmins,
-		nostr.KindSimpleGroupMembers,
-		nostr.KindSimpleGroupRoles,
-	}
+	groupKinds := slices.Concat(groupAdminKinds, groupRequestKinds)
 
-	if slices.Contains(groupMetaKinds, evt.Kind) {
+	if slices.Contains(groupMetaKinds, event.Kind) {
 		return true, "invalid: group metadata cannot be set directly"
 	}
 
-	// Reject join events if the user is already a member
-	if evt.Kind == nostr.KindSimpleGroupJoinRequest {
-		if IsGroupMember(ctx, GetGroupIDFromEvent(evt), evt.PubKey) {
-			return true, "duplicate: already a member"
-		}
-
-		if group := GetGroupFromEvent(evt); group.Closed {
-			return true, "restricted: cannot join a closed group"
-		}
+	if slices.Contains(groupAdminKinds, event.Kind) && !slices.Contains(RELAY_ADMINS, event.PubKey) {
+		return true, "restricted: only relay admin can manage groups"
 	}
 
-	// Reject leave events if the user is already not a member
-	if evt.Kind == nostr.KindSimpleGroupLeaveRequest {
-		if !IsGroupMember(ctx, GetGroupIDFromEvent(evt), evt.PubKey) {
-			return true, "duplicate: not currently a member"
+	if event.Kind == nostr.KindSimpleGroupJoinRequest && IsGroupMember(ctx, h, event.PubKey) {
+		return true, "duplicate: already a member"
+	}
+
+	if event.Kind == nostr.KindSimpleGroupLeaveRequest && !IsGroupMember(ctx, h, event.PubKey) {
+		return true, "duplicate: not currently a member"
+	}
+
+	if event.Kind == nostr.KindSimpleGroupCreateGroup {
+		if h == "" {
+			return true, "invalid: invalid group ID"
+		}
+
+		if g != nil {
+			return true, "invalid: that group already exists"
+		}
+	} else if slices.Contains(groupKinds, event.Kind) || h != "" {
+		if g == nil {
+			return true, "invalid: unknown group"
+		}
+
+		if !slices.Contains(groupRequestKinds, event.Kind) && g.Closed && !IsGroupMember(ctx, h, event.PubKey) {
+			return true, "restricted: you are not a member of this group"
 		}
 	}
 
@@ -150,40 +167,48 @@ func RejectEvent(ctx context.Context, evt *nostr.Event) (reject bool, msg string
 
 // SaveEvent
 
-func SaveEvent(ctx context.Context, evt *nostr.Event) error {
-	return GetBackend().SaveEvent(ctx, evt)
+func SaveEvent(ctx context.Context, event *nostr.Event) error {
+	return GetBackend().SaveEvent(ctx, event)
 }
 
 // OnEventSaved
 
-func OnEventSaved(ctx context.Context, evt *nostr.Event) {
-	if evt.Kind == nostr.KindSimpleGroupJoinRequest && GROUP_AUTO_JOIN {
-		if err := GetBackend().SaveEvent(ctx, MakePutUserEvent(evt)); err != nil {
+func OnEventSaved(ctx context.Context, event *nostr.Event) {
+	if event.Kind == nostr.KindSimpleGroupJoinRequest && GROUP_AUTO_JOIN {
+		putUserEvent := MakePutUserEvent(event)
+
+		if err := GetBackend().SaveEvent(ctx, putUserEvent); err != nil {
 			log.Println(err)
+		} else {
+			GetRelay().BroadcastEvent(putUserEvent)
 		}
 	}
 
-	if evt.Kind == nostr.KindSimpleGroupLeaveRequest && GROUP_AUTO_LEAVE {
-		if err := GetBackend().SaveEvent(ctx, MakeRemoveUserEvent(evt)); err != nil {
+	if event.Kind == nostr.KindSimpleGroupLeaveRequest && GROUP_AUTO_LEAVE {
+		removeUserEvent := MakeRemoveUserEvent(event)
+
+		if err := GetBackend().SaveEvent(ctx, removeUserEvent); err != nil {
 			log.Println(err)
+		} else {
+			GetRelay().BroadcastEvent(removeUserEvent)
 		}
 	}
 
-	if evt.Kind == nostr.KindSimpleGroupCreateGroup {
-		HandleCreateGroup(evt)
+	if event.Kind == nostr.KindSimpleGroupCreateGroup {
+		HandleCreateGroup(event)
 	}
 
-	if evt.Kind == nostr.KindSimpleGroupEditMetadata {
-		HandleEditMetadata(evt)
+	if event.Kind == nostr.KindSimpleGroupEditMetadata {
+		HandleEditMetadata(event)
 	}
 
-	if evt.Kind == nostr.KindSimpleGroupDeleteGroup {
-		HandleDeleteGroup(evt)
+	if event.Kind == nostr.KindSimpleGroupDeleteGroup {
+		HandleDeleteGroup(event)
 	}
 }
 
 // DeleteEvent
 
-func DeleteEvent(ctx context.Context, evt *nostr.Event) error {
-	return GetBackend().DeleteEvent(ctx, evt)
+func DeleteEvent(ctx context.Context, event *nostr.Event) error {
+	return GetBackend().DeleteEvent(ctx, event)
 }

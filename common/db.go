@@ -4,20 +4,27 @@ import (
 	"fmt"
 	"github.com/dgraph-io/badger/v4"
 	"log"
+	"sync"
 )
 
-var Db *badger.DB
+var (
+	database     *badger.DB
+	databaseOnce sync.Once
+)
 
-func SetupDatabase() {
-	var err error
-	Db, err = badger.Open(badger.DefaultOptions(GetDataDir("frith")))
-	if err != nil {
-		log.Fatal("Failed to open badger db:", err)
-	}
+func GetDatabase() *badger.DB {
+	databaseOnce.Do(func() {
+		var err error
+		database, err = badger.Open(badger.DefaultOptions(GetDataDir("frith")))
+		if err != nil {
+			log.Fatal("Failed to open badger db:", err)
+		}
+	})
+	return database
 }
 
 func PutBytes(tbl string, key string, value []byte) {
-	if err := Db.Update(func(txn *badger.Txn) error {
+	if err := GetDatabase().Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(tbl+":"+key), value)
 	}); err != nil {
 		fmt.Println(err)
@@ -30,7 +37,7 @@ func PutItem(tbl string, key string, value string) {
 
 func GetBytes(tbl string, key string) []byte {
 	var result []byte
-	err := Db.View(func(txn *badger.Txn) error {
+	err := GetDatabase().View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(tbl + ":" + key))
 		if err != nil {
 			return err
@@ -54,7 +61,7 @@ func GetItem(tbl string, key string) string {
 }
 
 func DeleteItem(tbl string, key string) {
-	err := Db.Update(func(txn *badger.Txn) error {
+	err := GetDatabase().Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte(tbl + ":" + key))
 	})
 	if err != nil {
@@ -65,7 +72,7 @@ func DeleteItem(tbl string, key string) {
 func ListItems(tbl string) []string {
 	var items []string
 
-	Db.View(func(txn *badger.Txn) error {
+	GetDatabase().View(func(txn *badger.Txn) error {
 		prefix := tbl + ":"
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = true

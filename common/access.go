@@ -80,7 +80,10 @@ func GenerateInviteEvents(ctx context.Context, filter nostr.Filter) []*nostr.Eve
 // Access policies
 
 func HasAccess(pubkey string) bool {
-	return HasAccessUsingWhitelist(pubkey) || HasAccessUsingClaim(pubkey) || HasAccessUsingBackend(pubkey)
+	return slices.Contains(RELAY_ADMINS, pubkey) ||
+		HasAccessUsingWhitelist(pubkey) ||
+		HasAccessUsingClaim(pubkey) ||
+		HasAccessUsingBackend(pubkey)
 }
 
 func HasAccessUsingWhitelist(pubkey string) bool {

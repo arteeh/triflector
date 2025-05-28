@@ -14,7 +14,6 @@ import (
 
 	"frith/common"
 	eventstore "github.com/fiatjaf/eventstore/badger"
-	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/blossom"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/afero"
@@ -22,7 +21,6 @@ import (
 
 func main() {
 	common.SetupEnvironment()
-	common.SetupDatabase()
 
 	// Create context that we'll cancel on shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -39,7 +37,7 @@ func main() {
 			select {
 			case <-ticker.C:
 			again:
-				err := common.Db.RunValueLogGC(0.7)
+				err := common.GetDatabase().RunValueLogGC(0.7)
 				if err == nil {
 					goto again
 				}
@@ -50,24 +48,11 @@ func main() {
 	}()
 
 	defer ticker.Stop()
-	defer common.Db.Close()
+	defer common.GetDatabase().Close()
 
-	// Set up our relay
-	relay := khatru.NewRelay()
-	relay.Info.Name = common.RELAY_NAME
-	relay.Info.Icon = common.RELAY_ICON
-	// relay.Info.Self = common.RELAY_SELF
-	relay.Info.PubKey = common.First(common.RELAY_ADMINS)
-	relay.Info.Description = common.RELAY_DESCRIPTION
-	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
+	// Relay
 
-	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
-	relay.RejectFilter = append(relay.RejectFilter, common.RejectFilter)
-	relay.QueryEvents = append(relay.QueryEvents, common.QueryEvents)
-	relay.DeleteEvent = append(relay.DeleteEvent, common.DeleteEvent)
-	relay.RejectEvent = append(relay.RejectEvent, common.RejectEvent)
-	relay.StoreEvent = append(relay.StoreEvent, common.SaveEvent)
-	relay.OnEventSaved = append(relay.OnEventSaved, common.OnEventSaved)
+	relay := common.GetRelay()
 
 	// Blossom
 

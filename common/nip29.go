@@ -13,7 +13,13 @@ import (
 func GetGroup(h string) *nip29.Group {
 	var group nip29.Group
 
-	if err := json.Unmarshal(GetBytes("group", h), &group); err != nil {
+	if h == "" {
+		return nil
+	}
+
+	data := GetBytes("group", h)
+
+	if err := json.Unmarshal(data, &group); err != nil {
 		return nil
 	}
 
@@ -77,10 +83,10 @@ func GetGroupFromEvent(event *nostr.Event) *nip29.Group {
 
 func IsGroupMember(ctx context.Context, h string, pubkey string) bool {
 	filter := nostr.Filter{
-		Limit: 1,
 		Kinds: []int{nostr.KindSimpleGroupPutUser, nostr.KindSimpleGroupRemoveUser},
 		Tags: nostr.TagMap{
 			"p": []string{pubkey},
+			"h": []string{h},
 		},
 	}
 
@@ -90,55 +96,59 @@ func IsGroupMember(ctx context.Context, h string, pubkey string) bool {
 		log.Println(err)
 	}
 
-	for evt := range events {
-		if evt.Kind == nostr.KindSimpleGroupPutUser {
+	for event := range events {
+		if event.Kind == nostr.KindSimpleGroupPutUser {
 			return true
+		}
+
+		if event.Kind == nostr.KindSimpleGroupRemoveUser {
+			return false
 		}
 	}
 
 	return false
 }
 
-func HandleCreateGroup(evt *nostr.Event) {
-	group := MakeGroup(GetGroupIDFromEvent(evt))
+func HandleCreateGroup(event *nostr.Event) {
+	group := MakeGroup(GetGroupIDFromEvent(event))
 
 	if group != nil {
 		PutGroup(group)
 	}
 }
 
-func HandleEditMetadata(evt *nostr.Event) {
-	group := GetGroupFromEvent(evt)
+func HandleEditMetadata(event *nostr.Event) {
+	group := GetGroupFromEvent(event)
 
 	if group == nil {
-		group = MakeGroup(GetGroupIDFromEvent(evt))
+		group = MakeGroup(GetGroupIDFromEvent(event))
 	}
 
-	group.LastMetadataUpdate = evt.CreatedAt
+	group.LastMetadataUpdate = event.CreatedAt
 	group.Name = group.Address.ID
 
-	if tag := evt.Tags.GetFirst([]string{"name", ""}); tag != nil {
+	if tag := event.Tags.GetFirst([]string{"name", ""}); tag != nil {
 		group.Name = (*tag)[1]
 	}
-	if tag := evt.Tags.GetFirst([]string{"about", ""}); tag != nil {
+	if tag := event.Tags.GetFirst([]string{"about", ""}); tag != nil {
 		group.About = (*tag)[1]
 	}
-	if tag := evt.Tags.GetFirst([]string{"picture", ""}); tag != nil {
+	if tag := event.Tags.GetFirst([]string{"picture", ""}); tag != nil {
 		group.Picture = (*tag)[1]
 	}
 
-	if tag := evt.Tags.GetFirst([]string{"private"}); tag != nil {
+	if tag := event.Tags.GetFirst([]string{"private"}); tag != nil {
 		group.Private = true
 	}
-	if tag := evt.Tags.GetFirst([]string{"closed"}); tag != nil {
+	if tag := event.Tags.GetFirst([]string{"closed"}); tag != nil {
 		group.Closed = true
 	}
 
 	PutGroup(group)
 }
 
-func HandleDeleteGroup(evt *nostr.Event) {
-	DeleteGroup(GetGroupIDFromEvent(evt))
+func HandleDeleteGroup(event *nostr.Event) {
+	DeleteGroup(GetGroupIDFromEvent(event))
 }
 
 func GenerateGroupMetadataEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
@@ -147,11 +157,13 @@ func GenerateGroupMetadataEvents(ctx context.Context, filter nostr.Filter) []*no
 	for _, group := range ListGroups() {
 		event := group.ToMetadataEvent()
 
-		if filter.Matches(event) {
-			if err := event.Sign(RELAY_SECRET); err != nil {
-				log.Println(err)
-			}
+		if !filter.Matches(event) {
+			continue
+		}
 
+		if err := event.Sign(RELAY_SECRET); err != nil {
+			log.Println("Failed to sign metadata event", err)
+		} else {
 			result = append(result, event)
 		}
 	}
@@ -159,36 +171,36 @@ func GenerateGroupMetadataEvents(ctx context.Context, filter nostr.Filter) []*no
 	return result
 }
 
-func MakePutUserEvent(evt *nostr.Event) *nostr.Event {
-	event := nostr.Event{
+func MakePutUserEvent(event *nostr.Event) *nostr.Event {
+	putUser := nostr.Event{
 		Kind:      nostr.KindSimpleGroupPutUser,
 		CreatedAt: nostr.Now(),
 		Tags: nostr.Tags{
-			nostr.Tag{"p", evt.PubKey},
-			nostr.Tag{"h", GetGroupIDFromEvent(evt)},
+			nostr.Tag{"p", event.PubKey},
+			nostr.Tag{"h", GetGroupIDFromEvent(event)},
 		},
 	}
 
-	if err := event.Sign(RELAY_SECRET); err != nil {
+	if err := putUser.Sign(RELAY_SECRET); err != nil {
 		log.Println(err)
 	}
 
-	return &event
+	return &putUser
 }
 
-func MakeRemoveUserEvent(evt *nostr.Event) *nostr.Event {
-	event := nostr.Event{
+func MakeRemoveUserEvent(event *nostr.Event) *nostr.Event {
+	removeUser := nostr.Event{
 		Kind:      nostr.KindSimpleGroupRemoveUser,
 		CreatedAt: nostr.Now(),
 		Tags: nostr.Tags{
-			nostr.Tag{"p", evt.PubKey},
-			nostr.Tag{"h", GetGroupIDFromEvent(evt)},
+			nostr.Tag{"p", event.PubKey},
+			nostr.Tag{"h", GetGroupIDFromEvent(event)},
 		},
 	}
 
-	if err := event.Sign(RELAY_SECRET); err != nil {
+	if err := removeUser.Sign(RELAY_SECRET); err != nil {
 		log.Println(err)
 	}
 
-	return &event
+	return &removeUser
 }
