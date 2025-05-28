@@ -67,6 +67,7 @@ func main() {
 	relay.DeleteEvent = append(relay.DeleteEvent, common.DeleteEvent)
 	relay.RejectEvent = append(relay.RejectEvent, common.RejectEvent)
 	relay.StoreEvent = append(relay.StoreEvent, common.SaveEvent)
+	relay.OnEventSaved = append(relay.OnEventSaved, common.OnEventSaved)
 
 	// Blossom
 

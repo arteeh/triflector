@@ -1,15 +1,14 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 	"sync"
 	"time"
-  "context"
 
-	eventstore "github.com/fiatjaf/eventstore/badger"
 	"github.com/fiatjaf/khatru"
 	"github.com/nbd-wtf/go-nostr"
 )
@@ -17,8 +16,8 @@ import (
 // Constants for relay-level access
 
 const (
-  AUTH_JOIN = 28934
-  AUTH_INVITE = 28935
+	AUTH_JOIN   = 28934
+	AUTH_INVITE = 28935
 )
 
 // Claims defined statically and consumed by user
@@ -28,7 +27,7 @@ func IsValidClaim(claim string) bool {
 }
 
 func GetUserClaims(pubkey string) []string {
-  return Split(GetItem("claim", pubkey), ",")
+	return Split(GetItem("claim", pubkey), ",")
 }
 
 func AddUserClaim(pubkey string, claim string) {
@@ -61,10 +60,10 @@ func ConsumeInvite(claim string) string {
 	return author
 }
 
-func GenerateInviteEvents(ctx context.Context, backend *eventstore.BadgerBackend, filter nostr.Filter) []*nostr.Event {
+func GenerateInviteEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
 	result := make([]*nostr.Event, 0)
-  pubkey := khatru.GetAuthed(ctx)
-  claim := GenerateInvite(pubkey)
+	pubkey := khatru.GetAuthed(ctx)
+	claim := GenerateInvite(pubkey)
 	event := nostr.Event{
 		Kind:      AUTH_INVITE,
 		CreatedAt: nostr.Now(),
@@ -85,7 +84,7 @@ func HasAccess(pubkey string) bool {
 }
 
 func HasAccessUsingWhitelist(pubkey string) bool {
-	return slices.Contains(AUTH_WHITELIST, pubkey)
+	return slices.Contains(RELAY_WHITELIST, pubkey)
 }
 
 func HasAccessUsingClaim(pubkey string) bool {
@@ -105,7 +104,7 @@ func HasAccessUsingBackend(pubkey string) bool {
 	defer backend_acl_mu.Unlock()
 
 	// If we don't have a backend, we're done
-	if AUTH_BACKEND == "" {
+	if RELAY_AUTH_BACKEND == "" {
 		return false
 	}
 
@@ -115,7 +114,7 @@ func HasAccessUsingBackend(pubkey string) bool {
 	}
 
 	// Fetch the url
-	res, err := http.Get(fmt.Sprintf("%s%s", AUTH_BACKEND, pubkey))
+	res, err := http.Get(fmt.Sprintf("%s%s", RELAY_AUTH_BACKEND, pubkey))
 
 	// If we get a 200, consider it good
 	if err == nil {

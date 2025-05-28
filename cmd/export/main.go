@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	_ "github.com/joho/godotenv/autoload"
 	eventstore "github.com/fiatjaf/eventstore/badger"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/nbd-wtf/go-nostr"
 )
 
@@ -21,7 +21,7 @@ func main() {
 
 	events, err := backend.QueryEvents(ctx, nostr.Filter{})
 	if err != nil {
-  	log.Fatal("Failed to query events:", err)
+		log.Fatal("Failed to query events:", err)
 	}
 
 	for evt := range events {

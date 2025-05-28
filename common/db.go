@@ -2,8 +2,8 @@ package common
 
 import (
 	"fmt"
-	"log"
 	"github.com/dgraph-io/badger/v4"
+	"log"
 )
 
 var Db *badger.DB

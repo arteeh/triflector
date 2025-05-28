@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-  "frith/common"
+	"frith/common"
 	"github.com/dgraph-io/badger/v4"
 	_ "github.com/joho/godotenv/autoload"
 )

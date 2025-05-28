@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/joho/godotenv/autoload"
 	eventstore "github.com/fiatjaf/eventstore/badger"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/nbd-wtf/go-nostr"
 )
 
@@ -21,7 +21,7 @@ func main() {
 	// Read events from stdin line by line
 	scanner := bufio.NewScanner(os.Stdin)
 	buf := make([]byte, 0, 64*1024)
-  scanner.Buffer(buf, 1024*1024)
+	scanner.Buffer(buf, 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 

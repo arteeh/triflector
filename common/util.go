@@ -1,17 +1,17 @@
 package common
 
 import (
-  "strings"
 	"math/rand"
+	"strings"
 )
 
 func First[T any](s []T) T {
-  if len(s) == 0 {
-    var zero T
-    return zero
-  }
+	if len(s) == 0 {
+		var zero T
+		return zero
+	}
 
-  return s[0]
+	return s[0]
 }
 
 func Keys[K comparable, V any](m map[K]V) []K {
@@ -48,9 +48,9 @@ func RandomString(n int) string {
 }
 
 func Split(s string, delim string) []string {
-  if s == "" {
-    return []string{}
-  } else {
-  	return strings.Split(s, delim)
-  }
+	if s == "" {
+		return []string{}
+	} else {
+		return strings.Split(s, delim)
+	}
 }
