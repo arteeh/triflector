@@ -11,15 +11,9 @@ import (
 )
 
 func main() {
-	// Set up our relay backend
-	backend := &eventstore.BadgerBackend{Path: "./data/events"}
-	if err := backend.Init(); err != nil {
-		log.Fatal("Failed to initialize backend:", err)
-	}
-
 	ctx := context.Background()
 
-	events, err := backend.QueryEvents(ctx, nostr.Filter{})
+	events, err := common.GetBackend().QueryEvents(ctx, nostr.Filter{})
 	if err != nil {
 		log.Fatal("Failed to query events:", err)
 	}

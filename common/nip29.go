@@ -10,21 +10,23 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
-func GetGroup(h string) (*nip29.Group, error) {
+func GetGroup(h string) *nip29.Group {
 	var group nip29.Group
 
-	err := json.Unmarshal(GetBytes("group", h), &group)
+	if err := json.Unmarshal(GetBytes("group", h), &group); err != nil {
+		return nil
+	}
 
-	return &group, err
+	return &group
 }
 
 func PutGroup(group *nip29.Group) {
 	data, err := json.Marshal(group)
 	if err != nil {
 		log.Println(err)
+	} else {
+		PutBytes("group", group.Address.ID, data)
 	}
-
-	PutBytes("group", group.Address.ID, data)
 }
 
 func DeleteGroup(h string) {
@@ -39,7 +41,7 @@ func ListGroups() []*nip29.Group {
 
 		err := json.Unmarshal([]byte(item), &group)
 		if err != nil {
-			log.Println(err)
+			log.Printf("Failed to unmarshal group %v %s", err, item)
 			continue
 		}
 
@@ -47,6 +49,17 @@ func ListGroups() []*nip29.Group {
 	}
 
 	return groups
+}
+
+func MakeGroup(h string) *nip29.Group {
+	qualifiedID := fmt.Sprintf("%s'%s", RELAY_URL, h)
+	group, err := nip29.NewGroup(qualifiedID)
+	if err != nil {
+		log.Printf("Failed to create group with qualified ID %s", qualifiedID)
+		return nil
+	}
+
+	return &group
 }
 
 func GetGroupIDFromEvent(event *nostr.Event) string {
@@ -58,7 +71,7 @@ func GetGroupIDFromEvent(event *nostr.Event) string {
 	return hTag.Value()
 }
 
-func GetGroupFromEvent(event *nostr.Event) (*nip29.Group, error) {
+func GetGroupFromEvent(event *nostr.Event) *nip29.Group {
 	return GetGroup(GetGroupIDFromEvent(event))
 }
 
@@ -71,7 +84,7 @@ func IsGroupMember(ctx context.Context, h string, pubkey string) bool {
 		},
 	}
 
-	events, err := backend.QueryEvents(ctx, filter)
+	events, err := GetBackend().QueryEvents(ctx, filter)
 
 	if err != nil {
 		log.Println(err)
@@ -87,18 +100,18 @@ func IsGroupMember(ctx context.Context, h string, pubkey string) bool {
 }
 
 func HandleCreateGroup(evt *nostr.Event) {
-	group, err := nip29.NewGroup(fmt.Sprintf("%s'%s", RELAY_URL, GetGroupIDFromEvent(evt)))
+	group := MakeGroup(GetGroupIDFromEvent(evt))
 
-	if err != nil {
-		PutGroup(&group)
+	if group != nil {
+		PutGroup(group)
 	}
 }
 
 func HandleEditMetadata(evt *nostr.Event) {
-	group, err := GetGroupFromEvent(evt)
-	if err != nil {
-		log.Println(err)
-		return
+	group := GetGroupFromEvent(evt)
+
+	if group == nil {
+		group = MakeGroup(GetGroupIDFromEvent(evt))
 	}
 
 	group.LastMetadataUpdate = evt.CreatedAt

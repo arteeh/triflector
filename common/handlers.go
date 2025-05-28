@@ -45,7 +45,7 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 			}
 		}
 
-		upstream, err := backend.QueryEvents(ctx, filter)
+		upstream, err := GetBackend().QueryEvents(ctx, filter)
 
 		if err != nil {
 			log.Println(err)
@@ -131,6 +131,10 @@ func RejectEvent(ctx context.Context, evt *nostr.Event) (reject bool, msg string
 	if evt.Kind == nostr.KindSimpleGroupJoinRequest {
 		if IsGroupMember(ctx, GetGroupIDFromEvent(evt), evt.PubKey) {
 			return true, "duplicate: already a member"
+		}
+
+		if group := GetGroupFromEvent(evt); group.Closed {
+			return true, "restricted: cannot join a closed group"
 		}
 	}
 

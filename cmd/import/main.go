@@ -12,12 +12,6 @@ import (
 )
 
 func main() {
-	// Set up our relay backend
-	backend := &eventstore.BadgerBackend{Path: "./data/events"}
-	if err := backend.Init(); err != nil {
-		log.Fatal("Failed to initialize backend:", err)
-	}
-
 	// Read events from stdin line by line
 	scanner := bufio.NewScanner(os.Stdin)
 	buf := make([]byte, 0, 64*1024)
@@ -44,7 +38,7 @@ func main() {
 		}
 
 		// Save the event
-		if err := backend.SaveEvent(nil, &event); err != nil {
+		if err := common.GetBackend().SaveEvent(nil, &event); err != nil {
 			log.Printf("%v (%s)\n", err, event.ID)
 			continue
 		}
