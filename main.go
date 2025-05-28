@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"slices"
 	"syscall"
 	"time"
 
@@ -58,57 +57,16 @@ func main() {
 	relay.Info.Name = common.RELAY_NAME
 	relay.Info.Icon = common.RELAY_ICON
 	// relay.Info.Self = common.RELAY_SELF
-	relay.Info.PubKey = common.RELAY_ADMIN
+	relay.Info.PubKey = common.First(common.RELAY_ADMINS)
 	relay.Info.Description = common.RELAY_DESCRIPTION
 	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
 
-	// Set up our relay backend
-	backend := &eventstore.BadgerBackend{Path: common.GetDataDir("events")}
-	if err := backend.Init(); err != nil {
-		log.Fatal("Failed to initialize backend:", err)
-	}
-
 	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
-	relay.StoreEvent = append(relay.StoreEvent, backend.SaveEvent)
-	relay.DeleteEvent = append(relay.DeleteEvent, backend.DeleteEvent)
-
-	// Query events
-	relay.QueryEvents = append(relay.QueryEvents, backend.QueryEvents)
-	relay.QueryEvents = append(relay.QueryEvents,
-		func(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
-			ch := make(chan *nostr.Event)
-			pubkey := khatru.GetAuthed(ctx)
-
-			go func() {
-				defer close(ch)
-
-				if !common.HasAccess(pubkey) {
-					return
-				}
-
-				if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
-					for _, event := range common.GenerateGroupMetadataEvents(ctx, backend, filter) {
-						ch <- event
-					}
-				}
-
-				if common.GENERATE_CLAIMS && slices.Contains(filter.Kinds, common.AUTH_INVITE) {
-					for _, event := range common.GenerateInviteEvents(ctx, backend, filter) {
-						ch <- event
-					}
-				}
-			}()
-
-			return ch, nil
-		},
-	)
-
-	// Reject event
-	relay.RejectEvent = append(relay.RejectEvent, common.RejectEvent)
-	relay.RejectEvent = append(relay.RejectEvent, common.RejectAccessRequest)
-
-	// Reject filter
 	relay.RejectFilter = append(relay.RejectFilter, common.RejectFilter)
+	relay.QueryEvents = append(relay.QueryEvents, common.QueryEvents)
+	relay.DeleteEvent = append(relay.DeleteEvent, common.DeleteEvent)
+	relay.RejectEvent = append(relay.RejectEvent, common.RejectEvent)
+	relay.StoreEvent = append(relay.StoreEvent, common.SaveEvent)
 
 	// Blossom
 

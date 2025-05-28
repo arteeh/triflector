@@ -12,7 +12,7 @@ var PORT string
 var RELAY_URL string
 var RELAY_NAME string
 var RELAY_ICON string
-var RELAY_ADMIN string
+var RELAY_ADMINS []string
 var RELAY_SECRET string
 var RELAY_SELF string
 var RELAY_DESCRIPTION string
@@ -46,13 +46,13 @@ func SetupEnvironment() {
 	RELAY_URL = getEnv("RELAY_URL", "localhost:3334")
 	RELAY_NAME = getEnv("RELAY_NAME", "Frith")
 	RELAY_ICON = getEnv("RELAY_ICON", "https://hbr.coracle.social/fd73de98153b615f516d316d663b413205fd2e6e53d2c6064030ab57a7685bbd.jpg")
-	RELAY_ADMIN = getEnv("RELAY_ADMIN", "")
+	RELAY_ADMINS = Split(getEnv("RELAY_ADMINS", ""), ",")
 	RELAY_SECRET = getEnv("RELAY_SECRET", nostr.GeneratePrivateKey())
 	RELAY_SELF, _ = nostr.GetPublicKey(RELAY_SECRET)
 	RELAY_DESCRIPTION = getEnv("RELAY_DESCRIPTION", "A nostr relay for hosting groups.")
-	RELAY_CLAIMS = split(getEnv("RELAY_CLAIMS", ""), ",")
+	RELAY_CLAIMS = Split(getEnv("RELAY_CLAIMS", ""), ",")
 	AUTH_BACKEND = getEnv("AUTH_BACKEND", "")
-	AUTH_WHITELIST = split(getEnv("AUTH_WHITELIST", ""), ",")
+	AUTH_WHITELIST = Split(getEnv("AUTH_WHITELIST", ""), ",")
 	AUTH_RESTRICT_USER = getEnv("AUTH_RESTRICT_USER", "true") == "true"
 	AUTH_RESTRICT_AUTHOR = getEnv("AUTH_RESTRICT_AUTHOR", "false") == "true"
 	GENERATE_CLAIMS = getEnv("GENERATE_CLAIMS", "false") == "true"
