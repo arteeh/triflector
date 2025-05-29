@@ -171,6 +171,36 @@ func GenerateGroupMetadataEvents(ctx context.Context, filter nostr.Filter) []*no
 	return result
 }
 
+func GenerateGroupAdminsEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
+	result := make([]*nostr.Event, 0)
+
+	for _, group := range ListGroups() {
+		event := nostr.Event{
+			Kind:      nostr.KindSimpleGroupAdmins,
+			CreatedAt: nostr.Now(),
+			Tags: nostr.Tags{
+				nostr.Tag{"d", group.Address.ID},
+			},
+		}
+
+		for _, pubkey := range RELAY_ADMINS {
+			event.Tags = append(event.Tags, nostr.Tag{"p", pubkey})
+		}
+
+		if !filter.Matches(&event) {
+			continue
+		}
+
+		if err := event.Sign(RELAY_SECRET); err != nil {
+			log.Println("Failed to sign admins event", err)
+		} else {
+			result = append(result, &event)
+		}
+	}
+
+	return result
+}
+
 func MakePutUserEvent(event *nostr.Event) *nostr.Event {
 	putUser := nostr.Event{
 		Kind:      nostr.KindSimpleGroupPutUser,

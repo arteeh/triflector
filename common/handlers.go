@@ -40,6 +40,12 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 			}
 		}
 
+		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupAdmins) {
+			for _, event := range GenerateGroupAdminsEvents(ctx, filter) {
+				ch <- event
+			}
+		}
+
 		if RELAY_GENERATE_CLAIMS && slices.Contains(filter.Kinds, AUTH_INVITE) {
 			for _, event := range GenerateInviteEvents(ctx, filter) {
 				ch <- event
