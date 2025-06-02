@@ -139,7 +139,7 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 	}
 
 	if slices.Contains(groupAdminKinds, event.Kind) && !slices.Contains(RELAY_ADMINS, event.PubKey) {
-		return true, "restricted: only relay admin can manage groups"
+		return true, "restricted: only relay admins can manage groups"
 	}
 
 	if event.Kind == nostr.KindSimpleGroupJoinRequest && IsGroupMember(ctx, h, event.PubKey) {

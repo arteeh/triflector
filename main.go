@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,10 +11,6 @@ import (
 	"time"
 
 	"frith/common"
-	eventstore "github.com/fiatjaf/eventstore/badger"
-	"github.com/fiatjaf/khatru/blossom"
-	"github.com/nbd-wtf/go-nostr"
-	"github.com/spf13/afero"
 )
 
 func main() {
@@ -53,81 +47,6 @@ func main() {
 	// Relay
 
 	relay := common.GetRelay()
-
-	// Blossom
-
-	fs := afero.NewOsFs()
-	blossomPath := common.GetDataDir("media")
-
-	if err := fs.MkdirAll(blossomPath, 0755); err != nil {
-		log.Fatal("🚫 error creating blossom path:", err)
-	}
-
-	bldb := &eventstore.BadgerBackend{Path: common.GetDataDir("blossom")}
-	if err := bldb.Init(); err != nil {
-		log.Fatal("Failed to initialize blossom backend:", err)
-	}
-
-	bl := blossom.New(relay, "https://"+common.RELAY_URL)
-
-	bl.Store = blossom.EventStoreBlobIndexWrapper{Store: bldb, ServiceURL: bl.ServiceURL}
-
-	bl.StoreBlob = append(bl.StoreBlob, func(ctx context.Context, sha256 string, body []byte) error {
-		file, err := fs.Create(blossomPath + sha256)
-		if err != nil {
-			return err
-		}
-
-		if _, err := io.Copy(file, bytes.NewReader(body)); err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	bl.LoadBlob = append(bl.LoadBlob, func(ctx context.Context, sha256 string) (io.ReadSeeker, error) {
-		return fs.Open(blossomPath + sha256)
-	})
-
-	bl.DeleteBlob = append(bl.DeleteBlob, func(ctx context.Context, sha256 string) error {
-		return fs.Remove(blossomPath + sha256)
-	})
-
-	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, auth *nostr.Event, size int, ext string) (bool, string, int) {
-		if size > 10*1024*1024 {
-			return true, "file too large", 413
-		}
-
-		if auth == nil || !common.HasAccess(auth.PubKey) {
-			return true, "unauthorized", 403
-		}
-
-		return false, ext, size
-	})
-
-	bl.RejectGet = append(bl.RejectGet, func(ctx context.Context, auth *nostr.Event, sha256 string) (bool, string, int) {
-		if auth == nil || !common.HasAccess(auth.PubKey) {
-			return true, "unauthorized", 403
-		}
-
-		return false, "", 200
-	})
-
-	bl.RejectList = append(bl.RejectList, func(ctx context.Context, auth *nostr.Event, pubkey string) (bool, string, int) {
-		if auth == nil || !common.HasAccess(auth.PubKey) {
-			return true, "unauthorized", 403
-		}
-
-		return false, "", 200
-	})
-
-	bl.RejectDelete = append(bl.RejectDelete, func(ctx context.Context, auth *nostr.Event, sha256 string) (bool, string, int) {
-		if auth == nil || !common.HasAccess(auth.PubKey) {
-			return true, "unauthorized", 403
-		}
-
-		return false, "", 200
-	})
 
 	// Merge everything into a single handler and start the server
 
