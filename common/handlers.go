@@ -61,12 +61,8 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 		for event := range upstream {
 			g := GetGroupFromEvent(event)
 
-			if g == nil {
+			if g == nil || !g.Private || IsGroupMember(ctx, g.Address.ID, pubkey) {
 				ch <- event
-			} else if RELAY_ENABLE_GROUPS {
-				if !g.Private || IsGroupMember(ctx, g.Address.ID, pubkey) {
-					ch <- event
-				}
 			}
 		}
 	}()
