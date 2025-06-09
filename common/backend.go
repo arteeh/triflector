@@ -18,5 +18,6 @@ func GetBackend() *badger.BadgerBackend {
 			log.Fatal(err)
 		}
 	})
+
 	return backend
 }

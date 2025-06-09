@@ -1,6 +1,6 @@
 # Frith
 
-This is a relay based on [Khatru](https://github.com/fiatjaf/khatru) which implements a range of access controls. It's designed to be used with [Flotilla](https://flotilla.social) as a community relay (complete with NIP 29 support), but it can also be used outside of a community context (unlike other implementations).
+This is a relay based on [Khatru](https://github.com/fiatjaf/khatru) which implements a range of access controls. It's designed to be used with [Flotilla](https://flotilla.social) as a community relay (complete with NIP 29 support), but it can also be used outside of a community context.
 
 ## Environment
 
