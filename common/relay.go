@@ -49,7 +49,10 @@ func migrateGroups() {
 
 	var ids []string
 
-	ch, err := GetBackend().QueryEvents(ctx, nostr.Filter{})
+	ch, err := GetBackend().QueryEvents(ctx, nostr.Filter{
+		Limit: 1000,
+		Kinds: []int{nostr.KindSimpleGroupChatMessage},
+	})
 	if err != nil {
 		log.Fatal("failed to query events", err)
 	}

@@ -19,7 +19,7 @@ func RejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg st
 	}
 
 	if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
-		return true, "restricted: you are not a memeber of this relay"
+		return true, "restricted: you are not a member of this relay"
 	}
 
 	return false, ""
