@@ -59,7 +59,7 @@ func migrateGroups() {
 
 	for event := range ch {
 		for _, tag := range event.Tags {
-			if len(tag) >= 2 && tag[0] == "h" && tag[1] != "" && !slices.Contains(ids, tag[1]) && GetGroup(tag[1]) != nil {
+			if len(tag) >= 2 && tag[0] == "h" && tag[1] != "" && !slices.Contains(ids, tag[1]) {
 				ids = append(ids, tag[1])
 			}
 		}
