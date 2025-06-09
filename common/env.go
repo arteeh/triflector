@@ -24,6 +24,7 @@ var RELAY_WHITELIST []string
 var RELAY_RESTRICT_USER bool
 var RELAY_RESTRICT_AUTHOR bool
 var RELAY_GENERATE_CLAIMS bool
+var RELAY_ENABLE_GROUPS bool
 var GROUP_AUTO_JOIN bool
 var GROUP_AUTO_LEAVE bool
 
@@ -62,6 +63,7 @@ func SetupEnvironment() {
 	RELAY_RESTRICT_USER = getEnv("RELAY_RESTRICT_USER", "true") == "true"
 	RELAY_RESTRICT_AUTHOR = getEnv("RELAY_RESTRICT_AUTHOR", "false") == "true"
 	RELAY_GENERATE_CLAIMS = getEnv("RELAY_GENERATE_CLAIMS", "false") == "true"
+	RELAY_ENABLE_GROUPS = getEnv("RELAY_ENABLE_GROUPS", "false") == "true"
 	GROUP_AUTO_JOIN = getEnv("GROUP_AUTO_JOIN", "false") == "true"
 	GROUP_AUTO_LEAVE = getEnv("GROUP_AUTO_LEAVE", "true") == "true"
 }

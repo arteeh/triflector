@@ -34,13 +34,13 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 	go func() {
 		defer close(ch)
 
-		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
+		if RELAY_ENABLE_GROUPS && slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
 			for _, event := range GenerateGroupMetadataEvents(ctx, filter) {
 				ch <- event
 			}
 		}
 
-		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupAdmins) {
+		if RELAY_ENABLE_GROUPS && slices.Contains(filter.Kinds, nostr.KindSimpleGroupAdmins) {
 			for _, event := range GenerateGroupAdminsEvents(ctx, filter) {
 				ch <- event
 			}
@@ -61,8 +61,12 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 		for event := range upstream {
 			g := GetGroupFromEvent(event)
 
-			if g == nil || !g.Private || IsGroupMember(ctx, g.Address.ID, pubkey) {
+			if g == nil {
 				ch <- event
+			} else if RELAY_ENABLE_GROUPS {
+				if !g.Private || IsGroupMember(ctx, g.Address.ID, pubkey) {
+					ch <- event
+				}
 			}
 		}
 	}()
@@ -138,19 +142,41 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		return true, "invalid: group metadata cannot be set directly"
 	}
 
-	if slices.Contains(groupAdminKinds, event.Kind) && !slices.Contains(RELAY_ADMINS, event.PubKey) {
-		return true, "restricted: only relay admins can manage groups"
+	if slices.Contains(groupAdminKinds, event.Kind) {
+		if !RELAY_ENABLE_GROUPS {
+			return true, "invalid: group events not accepted on this relay"
+		}
+
+		if !slices.Contains(RELAY_ADMINS, event.PubKey) {
+			return true, "restricted: only relay admins can manage groups"
+		}
 	}
 
-	if event.Kind == nostr.KindSimpleGroupJoinRequest && IsGroupMember(ctx, h, event.PubKey) {
-		return true, "duplicate: already a member"
+	if event.Kind == nostr.KindSimpleGroupJoinRequest {
+		if !RELAY_ENABLE_GROUPS {
+			return true, "invalid: group events not accepted on this relay"
+		}
+
+		if IsGroupMember(ctx, h, event.PubKey) {
+			return true, "duplicate: already a member"
+		}
 	}
 
-	if event.Kind == nostr.KindSimpleGroupLeaveRequest && !IsGroupMember(ctx, h, event.PubKey) {
-		return true, "duplicate: not currently a member"
+	if event.Kind == nostr.KindSimpleGroupLeaveRequest {
+		if !RELAY_ENABLE_GROUPS {
+			return true, "invalid: group events not accepted on this relay"
+		}
+
+		if !IsGroupMember(ctx, h, event.PubKey) {
+			return true, "duplicate: not currently a member"
+		}
 	}
 
 	if event.Kind == nostr.KindSimpleGroupCreateGroup {
+		if !RELAY_ENABLE_GROUPS {
+			return true, "invalid: group events not accepted on this relay"
+		}
+
 		if h == "" {
 			return true, "invalid: invalid group ID"
 		}
@@ -159,6 +185,10 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 			return true, "invalid: that group already exists"
 		}
 	} else if slices.Contains(groupKinds, event.Kind) || h != "" {
+		if !RELAY_ENABLE_GROUPS {
+			return true, "invalid: group events not accepted on this relay"
+		}
+
 		if g == nil {
 			return true, "invalid: unknown group"
 		}

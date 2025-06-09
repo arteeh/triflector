@@ -24,9 +24,12 @@ func GetRelay() *khatru.Relay {
 		// relay.Info.Self = RELAY_SELF
 		relay.Info.PubKey = First(RELAY_ADMINS)
 		relay.Info.Description = RELAY_DESCRIPTION
-		relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
 		relay.Info.Software = "https://github.com/coracle-social/frith"
 		relay.Info.Version = "v0.1.0"
+
+		if RELAY_ENABLE_GROUPS {
+			relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
+		}
 
 		relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 		relay.RejectFilter = append(relay.RejectFilter, RejectFilter)

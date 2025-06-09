@@ -19,6 +19,7 @@ The following environment variables are optional:
 - `RELAY_RESTRICT_USER` - whether to only accept events published by authenticated users. Defaults to `true`. If `false`, no AUTH challenge will be sent.
 - `RELAY_RESTRICT_AUTHOR` - whether to only accept events signed by authorized users. Defaults to `false`.
 - `RELAY_GENERATE_CLAIMS` - whether to allows relay members to generate invite codes. Defaults to `false`.
+- `RELAY_ENABLE_GROUPS` - whether to allow NIP 29 group events. Defaults to `false`.
 - `GROUP_AUTO_JOIN` - whether relay members can join `open` groups without approval. Defaults to `false`.
 - `GROUP_AUTO_LEAVE` - whether relay members can leave groups without approval. Defaults to `true`.
 
