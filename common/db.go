@@ -31,7 +31,7 @@ func PutBytes(tbl string, key string, value []byte) {
 	}
 }
 
-func PutItem(tbl string, key string, value string) {
+func PutString(tbl string, key string, value string) {
 	PutBytes(tbl, key, []byte(value))
 }
 
@@ -56,11 +56,11 @@ func GetBytes(tbl string, key string) []byte {
 	return result
 }
 
-func GetItem(tbl string, key string) string {
+func GetString(tbl string, key string) string {
 	return string(GetBytes(tbl, key))
 }
 
-func DeleteItem(tbl string, key string) {
+func DeleteKey(tbl string, key string) {
 	err := GetDatabase().Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte(tbl + ":" + key))
 	})
@@ -69,8 +69,8 @@ func DeleteItem(tbl string, key string) {
 	}
 }
 
-func ListItems(tbl string) []string {
-	var items []string
+func ListItems(tbl string) map[string]string {
+	result := make(map[string]string)
 
 	GetDatabase().View(func(txn *badger.Txn) error {
 		prefix := tbl + ":"
@@ -80,14 +80,15 @@ func ListItems(tbl string) []string {
 		defer it.Close()
 		for it.Seek([]byte(prefix)); it.ValidForPrefix([]byte(prefix)); it.Next() {
 			item := it.Item()
+			key := item.Key()
 			val, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
-			items = append(items, string(val))
+			result[string(key)] = string(val)
 		}
 		return nil
 	})
 
-	return items
+	return result
 }

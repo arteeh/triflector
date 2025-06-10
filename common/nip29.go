@@ -36,7 +36,7 @@ func PutGroup(group *nip29.Group) {
 }
 
 func DeleteGroup(h string) {
-	DeleteItem("group", h)
+	DeleteKey("group", h)
 }
 
 func ListGroups() []*nip29.Group {

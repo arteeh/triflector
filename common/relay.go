@@ -38,6 +38,8 @@ func GetRelay() *khatru.Relay {
 		relay.RejectEvent = append(relay.RejectEvent, RejectEvent)
 		relay.StoreEvent = append(relay.StoreEvent, SaveEvent)
 		relay.OnEventSaved = append(relay.OnEventSaved, OnEventSaved)
+
+		enableManaagementApi(relay)
 	})
 
 	migrateGroups()

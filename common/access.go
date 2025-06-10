@@ -27,7 +27,7 @@ func IsValidClaim(claim string) bool {
 }
 
 func GetUserClaims(pubkey string) []string {
-	return Split(GetItem("claim", pubkey), ",")
+	return Split(GetString("claim", pubkey), ",")
 }
 
 func AddUserClaim(pubkey string, claim string) {
@@ -36,7 +36,7 @@ func AddUserClaim(pubkey string, claim string) {
 	if !slices.Contains(claims, claim) {
 		claims = append(claims, claim)
 
-		PutItem("claim", pubkey, strings.Join(claims, ","))
+		PutString("claim", pubkey, strings.Join(claims, ","))
 	}
 }
 
@@ -45,16 +45,16 @@ func AddUserClaim(pubkey string, claim string) {
 func GenerateInvite(author string) string {
 	claim := RandomString(8)
 
-	PutItem("invite", claim, author)
+	PutString("invite", claim, author)
 
 	return claim
 }
 
 func ConsumeInvite(claim string) string {
-	author := GetItem("invite", claim)
+	author := GetString("invite", claim)
 
 	if author != "" {
-		DeleteItem("invite", claim)
+		DeleteKey("invite", claim)
 	}
 
 	return author
