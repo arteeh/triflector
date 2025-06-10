@@ -13,7 +13,7 @@ func enableManaagementApi(relay *khatru.Relay) {
 	relay.RejectFilter = append(
 		relay.RejectFilter,
 		func(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
-			if GetString("bannedpubkey", khatru.GetAuthed(ctx)) == "" {
+			if HasItem("bannedpubkey", khatru.GetAuthed(ctx)) {
 				return true, "restricted: you have been banned from this relay"
 			}
 
@@ -24,15 +24,15 @@ func enableManaagementApi(relay *khatru.Relay) {
 	relay.RejectEvent = append(
 		relay.RejectEvent,
 		func(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-			if GetString("bannedpubkey", khatru.GetAuthed(ctx)) == "" {
+			if HasItem("bannedpubkey", khatru.GetAuthed(ctx)) {
 				return true, "restricted: you have been banned from this relay"
 			}
 
-			if GetString("bannedpubkey", event.PubKey) == "" {
+			if HasItem("bannedpubkey", event.PubKey) {
 				return true, "restricted: event author has been banned from this relay"
 			}
 
-			if GetString("bannedevent", event.ID) == "" {
+			if HasItem("bannedevent", event.ID) {
 				return true, "restricted: event has been banned from this relay"
 			}
 
@@ -52,7 +52,7 @@ func enableManaagementApi(relay *khatru.Relay) {
 	)
 
 	relay.ManagementAPI.BanPubKey = func(ctx context.Context, pubkey string, reason string) error {
-		PutString("bannedpubkey", pubkey, reason)
+		PutItem("bannedpubkey", pubkey, []byte(reason))
 		return nil
 	}
 
@@ -87,7 +87,7 @@ func enableManaagementApi(relay *khatru.Relay) {
 			DeleteEvent(ctx, event)
 		}
 
-		PutString("bannedevent", id, reason)
+		PutItem("bannedevent", id, []byte(reason))
 
 		return nil
 	}

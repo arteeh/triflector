@@ -17,7 +17,7 @@ func GetGroup(h string) *nip29.Group {
 		return nil
 	}
 
-	data := GetBytes("group", h)
+	data := GetItem("group", h)
 
 	if err := json.Unmarshal(data, &group); err != nil {
 		return nil
@@ -31,12 +31,12 @@ func PutGroup(group *nip29.Group) {
 	if err != nil {
 		log.Println(err)
 	} else {
-		PutBytes("group", group.Address.ID, data)
+		PutItem("group", group.Address.ID, data)
 	}
 }
 
 func DeleteGroup(h string) {
-	DeleteKey("group", h)
+	DeleteItem("group", h)
 }
 
 func ListGroups() []*nip29.Group {

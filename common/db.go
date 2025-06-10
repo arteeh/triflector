@@ -23,7 +23,7 @@ func GetDatabase() *badger.DB {
 	return database
 }
 
-func PutBytes(tbl string, key string, value []byte) {
+func PutItem(tbl string, key string, value []byte) {
 	if err := GetDatabase().Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(tbl+":"+key), value)
 	}); err != nil {
@@ -31,11 +31,7 @@ func PutBytes(tbl string, key string, value []byte) {
 	}
 }
 
-func PutString(tbl string, key string, value string) {
-	PutBytes(tbl, key, []byte(value))
-}
-
-func GetBytes(tbl string, key string) []byte {
+func GetItem(tbl string, key string) []byte {
 	var result []byte
 	err := GetDatabase().View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(tbl + ":" + key))
@@ -56,11 +52,11 @@ func GetBytes(tbl string, key string) []byte {
 	return result
 }
 
-func GetString(tbl string, key string) string {
-	return string(GetBytes(tbl, key))
+func HasItem(tbl string, key string) bool {
+	return len(GetItem(tbl, key)) > 0
 }
 
-func DeleteKey(tbl string, key string) {
+func DeleteItem(tbl string, key string) {
 	err := GetDatabase().Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte(tbl + ":" + key))
 	})
