@@ -72,5 +72,3 @@ require (
 	golang.org/x/text v0.24.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
-
-replace github.com/fiatjaf/khatru v0.18.0 => ../khatru

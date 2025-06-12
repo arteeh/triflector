@@ -56,9 +56,14 @@ func enableManaagementApi(relay *khatru.Relay) {
 		return nil
 	}
 
+	relay.ManagementAPI.AllowPubKey = func(ctx context.Context, pubkey string, reason string) error {
+		DeleteItem("bannedpubkey", pubkey)
+		return nil
+	}
+
 	relay.ManagementAPI.ListBannedPubKeys = func(ctx context.Context) ([]nip86.PubKeyReason, error) {
 		items := ListItems("bannedpubkey")
-		reasons := make([]nip86.PubKeyReason, len(items))
+		reasons := make([]nip86.PubKeyReason, 0, len(items))
 
 		for pubkey, reason := range items {
 			reasons = append(
@@ -92,9 +97,14 @@ func enableManaagementApi(relay *khatru.Relay) {
 		return nil
 	}
 
+	relay.ManagementAPI.AllowEvent = func(ctx context.Context, id string, reason string) error {
+		DeleteItem("bannedevent", id)
+		return nil
+	}
+
 	relay.ManagementAPI.ListBannedEvents = func(ctx context.Context) ([]nip86.IDReason, error) {
 		items := ListItems("bannedevent")
-		reasons := make([]nip86.IDReason, len(items))
+		reasons := make([]nip86.IDReason, 0, len(items))
 
 		for id, reason := range items {
 			reasons = append(

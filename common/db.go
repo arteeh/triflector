@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/dgraph-io/badger/v4"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -53,7 +54,11 @@ func GetItem(tbl string, key string) []byte {
 }
 
 func HasItem(tbl string, key string) bool {
-	return len(GetItem(tbl, key)) > 0
+	err := GetDatabase().View(func(txn *badger.Txn) error {
+		_, err := txn.Get([]byte(tbl + ":" + key))
+		return err
+	})
+	return err == nil
 }
 
 func DeleteItem(tbl string, key string) {
@@ -76,12 +81,12 @@ func ListItems(tbl string) map[string]string {
 		defer it.Close()
 		for it.Seek([]byte(prefix)); it.ValidForPrefix([]byte(prefix)); it.Next() {
 			item := it.Item()
-			key := item.Key()
+			key := strings.TrimPrefix(string(item.Key()), prefix)
 			val, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
-			result[string(key)] = string(val)
+			result[key] = string(val)
 		}
 		return nil
 	})
