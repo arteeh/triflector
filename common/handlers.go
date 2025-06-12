@@ -90,7 +90,7 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 				AddUserClaim(event.PubKey, claim)
 			}
 
-			if !HasAccess(pubkey) {
+			if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
 				return true, "restricted: failed to validate invite code"
 			}
 		}
