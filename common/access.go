@@ -61,7 +61,6 @@ func ConsumeInvite(claim string) string {
 }
 
 func GenerateInviteEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
-	result := make([]*nostr.Event, 0)
 	pubkey := khatru.GetAuthed(ctx)
 	claim := GenerateInvite(pubkey)
 	event := nostr.Event{
@@ -74,7 +73,7 @@ func GenerateInviteEvents(ctx context.Context, filter nostr.Filter) []*nostr.Eve
 
 	event.Sign(RELAY_SECRET)
 
-	return result
+	return []*nostr.Event{&event}
 }
 
 // Access policies
