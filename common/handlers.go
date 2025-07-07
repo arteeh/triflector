@@ -75,6 +75,16 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	pubkey := khatru.GetAuthed(ctx)
 
+	// For zap receipts, authorize the zap sender instead
+	if event.Kind == nostr.KindZap {
+		tag := event.Tags.GetFirst([]string{"P"})
+
+		if tag != nil {
+			pubkey = tag.Value()
+		}
+	}
+
+	// Auth is always required
 	if pubkey == "" {
 		return true, "auth-required: authentication is required for access"
 	}
