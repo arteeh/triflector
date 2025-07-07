@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"slices"
 
@@ -77,10 +78,19 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 
 	// For zap receipts, authorize the zap sender instead
 	if event.Kind == nostr.KindZap {
-		tag := event.Tags.GetFirst([]string{"P"})
+		senderTag := event.Tags.GetFirst([]string{"P"})
 
-		if tag != nil {
-			pubkey = tag.Value()
+		if senderTag != nil {
+			pubkey = senderTag.Value()
+		}
+
+		descriptionTag := event.Tags.GetFirst([]string{"description"})
+
+		if descriptionTag != nil {
+			var zapRequest nostr.Event
+			if err := json.Unmarshal([]byte(descriptionTag.Value()), &zapRequest); err == nil {
+				event = &zapRequest
+			}
 		}
 	}
 
