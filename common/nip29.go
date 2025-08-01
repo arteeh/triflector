@@ -148,7 +148,40 @@ func HandleEditMetadata(event *nostr.Event) {
 }
 
 func HandleDeleteGroup(event *nostr.Event) {
-	DeleteGroup(GetGroupIDFromEvent(event))
+  ctx := context.Background()
+  id := GetGroupIDFromEvent(event)
+
+	DeleteGroup(id)
+
+	hFilter := nostr.Filter{
+		Tags: nostr.TagMap{
+			"h": []string{id},
+		},
+	}
+
+	hCh, err := GetBackend().QueryEvents(ctx, hFilter)
+	if err != nil {
+		log.Println(err)
+	} else {
+  	for event := range hCh {
+  		DeleteEvent(ctx, event)
+  	}
+	}
+
+	dFilter := nostr.Filter{
+		Tags: nostr.TagMap{
+			"d": []string{id},
+		},
+	}
+
+	dCh, err := GetBackend().QueryEvents(ctx, dFilter)
+	if err != nil {
+		log.Println(err)
+	} else {
+  	for event := range dCh {
+  		DeleteEvent(ctx, event)
+  	}
+	}
 }
 
 func GenerateGroupMetadataEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
