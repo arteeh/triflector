@@ -148,8 +148,8 @@ func HandleEditMetadata(event *nostr.Event) {
 }
 
 func HandleDeleteGroup(event *nostr.Event) {
-  ctx := context.Background()
-  id := GetGroupIDFromEvent(event)
+	ctx := context.Background()
+	id := GetGroupIDFromEvent(event)
 
 	DeleteGroup(id)
 
@@ -163,9 +163,9 @@ func HandleDeleteGroup(event *nostr.Event) {
 	if err != nil {
 		log.Println(err)
 	} else {
-  	for event := range hCh {
-  		DeleteEvent(ctx, event)
-  	}
+		for event := range hCh {
+			DeleteEvent(ctx, event)
+		}
 	}
 
 	dFilter := nostr.Filter{
@@ -178,9 +178,9 @@ func HandleDeleteGroup(event *nostr.Event) {
 	if err != nil {
 		log.Println(err)
 	} else {
-  	for event := range dCh {
-  		DeleteEvent(ctx, event)
-  	}
+		for event := range dCh {
+			DeleteEvent(ctx, event)
+		}
 	}
 }
 

@@ -23,6 +23,7 @@ var RELAY_AUTH_BACKEND string
 var RELAY_WHITELIST []string
 var RELAY_RESTRICT_USER bool
 var RELAY_RESTRICT_AUTHOR bool
+var RELAY_STRIP_SIGNATURES bool
 var RELAY_GENERATE_CLAIMS bool
 var RELAY_ENABLE_GROUPS bool
 var GROUP_AUTO_JOIN bool
@@ -62,6 +63,7 @@ func SetupEnvironment() {
 	RELAY_WHITELIST = Split(getEnv("RELAY_WHITELIST", ""), ",")
 	RELAY_RESTRICT_USER = getEnv("RELAY_RESTRICT_USER", "true") == "true"
 	RELAY_RESTRICT_AUTHOR = getEnv("RELAY_RESTRICT_AUTHOR", "false") == "true"
+	RELAY_STRIP_SIGNATURES = getEnv("RELAY_STRIP_SIGNATURES", "false") == "true"
 	RELAY_GENERATE_CLAIMS = getEnv("RELAY_GENERATE_CLAIMS", "false") == "true"
 	RELAY_ENABLE_GROUPS = getEnv("RELAY_ENABLE_GROUPS", "false") == "true"
 	GROUP_AUTO_JOIN = getEnv("GROUP_AUTO_JOIN", "false") == "true"

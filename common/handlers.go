@@ -32,24 +32,32 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 	ch := make(chan *nostr.Event)
 	pubkey := khatru.GetAuthed(ctx)
 
+  stripSignature := func (event *nostr.Event) *nostr.Event {
+  	if RELAY_STRIP_SIGNATURES && !slices.Contains(RELAY_ADMINS, pubkey) {
+  		event.Sig = ""
+  	}
+
+  	return event
+  }
+
 	go func() {
 		defer close(ch)
 
 		if RELAY_ENABLE_GROUPS && slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
 			for _, event := range GenerateGroupMetadataEvents(ctx, filter) {
-				ch <- event
+				ch <- stripSignature(event)
 			}
 		}
 
 		if RELAY_ENABLE_GROUPS && slices.Contains(filter.Kinds, nostr.KindSimpleGroupAdmins) {
 			for _, event := range GenerateGroupAdminsEvents(ctx, filter) {
-				ch <- event
+				ch <- stripSignature(event)
 			}
 		}
 
 		if RELAY_GENERATE_CLAIMS && slices.Contains(filter.Kinds, AUTH_INVITE) {
 			for _, event := range GenerateInviteEvents(ctx, filter) {
-				ch <- event
+				ch <- stripSignature(event)
 			}
 		}
 
@@ -63,7 +71,7 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 			g := GetGroupFromEvent(event)
 
 			if g == nil || !g.Private || IsGroupMember(ctx, g.Address.ID, pubkey) {
-				ch <- event
+				ch <- stripSignature(event)
 			}
 		}
 	}()
