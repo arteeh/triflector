@@ -13,14 +13,16 @@ import (
 // RejectFilter
 
 func RejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
-	pubkey := khatru.GetAuthed(ctx)
+	if RELAY_RESTRICT_USER {
+		pubkey := khatru.GetAuthed(ctx)
 
-	if pubkey == "" {
-		return true, "auth-required: authentication is required for access"
-	}
+		if pubkey == "" {
+			return true, "auth-required: authentication is required for access"
+		}
 
-	if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
-		return true, "restricted: you are not a member of this relay"
+		if !HasAccess(pubkey) {
+			return true, "restricted: you are not a member of this relay"
+		}
 	}
 
 	return false, ""
@@ -32,13 +34,13 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 	ch := make(chan *nostr.Event)
 	pubkey := khatru.GetAuthed(ctx)
 
-  stripSignature := func (event *nostr.Event) *nostr.Event {
-  	if RELAY_STRIP_SIGNATURES && !slices.Contains(RELAY_ADMINS, pubkey) {
-  		event.Sig = ""
-  	}
+	stripSignature := func(event *nostr.Event) *nostr.Event {
+		if RELAY_STRIP_SIGNATURES && !slices.Contains(RELAY_ADMINS, pubkey) {
+			event.Sig = ""
+		}
 
-  	return event
-  }
+		return event
+	}
 
 	go func() {
 		defer close(ch)
@@ -102,20 +104,25 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		}
 	}
 
-	// Auth is always required
+	// Auth is always required to publish events
 	if pubkey == "" {
 		return true, "auth-required: authentication is required for access"
 	}
 
+	// Reject replaying of events (join, create group) by other people
+	if pubkey != event.PubKey && event.Kind != nostr.KindZap {
+		return true, "restricted: you cannot publish events on behalf of others"
+	}
+
 	// Process relay-level join requests before anything else
-	if event.Kind == AUTH_JOIN && event.PubKey == pubkey {
+	if event.Kind == AUTH_JOIN {
 		tag := event.Tags.GetFirst([]string{"claim"})
 
 		if tag != nil {
 			claim := tag.Value()
 
 			if IsValidClaim(claim) || HasAccess(ConsumeInvite(claim)) {
-				AddUserClaim(event.PubKey, claim)
+				AddUserClaim(pubkey, claim)
 			}
 
 			if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
@@ -130,7 +137,7 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		return true, "restricted: you are not a member of this relay"
 	}
 
-	if RELAY_RESTRICT_AUTHOR && !HasAccess(event.PubKey) {
+	if RELAY_RESTRICT_AUTHOR && !HasAccess(pubkey) {
 		return true, "restricted: event author is not a member of this relay"
 	}
 
@@ -171,7 +178,7 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 			return true, "invalid: group events not accepted on this relay"
 		}
 
-		if !slices.Contains(RELAY_ADMINS, event.PubKey) {
+		if !slices.Contains(RELAY_ADMINS, pubkey) {
 			return true, "restricted: only relay admins can manage groups"
 		}
 	}
@@ -181,7 +188,7 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 			return true, "invalid: group events not accepted on this relay"
 		}
 
-		if IsGroupMember(ctx, h, event.PubKey) {
+		if IsGroupMember(ctx, h, pubkey) {
 			return true, "duplicate: already a member"
 		}
 	}
@@ -191,7 +198,7 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 			return true, "invalid: group events not accepted on this relay"
 		}
 
-		if !IsGroupMember(ctx, h, event.PubKey) {
+		if !IsGroupMember(ctx, h, pubkey) {
 			return true, "duplicate: not currently a member"
 		}
 	}
@@ -217,7 +224,7 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 			return true, "invalid: unknown group"
 		}
 
-		if !slices.Contains(groupRequestKinds, event.Kind) && g.Closed && !IsGroupMember(ctx, h, event.PubKey) {
+		if !slices.Contains(groupRequestKinds, event.Kind) && g.Closed && !IsGroupMember(ctx, h, pubkey) {
 			return true, "restricted: you are not a member of this group"
 		}
 	}

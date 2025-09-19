@@ -62,6 +62,11 @@ func ConsumeInvite(claim string) string {
 
 func GenerateInviteEvents(ctx context.Context, filter nostr.Filter) []*nostr.Event {
 	pubkey := khatru.GetAuthed(ctx)
+
+	if pubkey == "" {
+		return []*nostr.Event{}
+	}
+
 	claim := GenerateInvite(pubkey)
 	event := nostr.Event{
 		Kind:      AUTH_INVITE,
