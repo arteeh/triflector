@@ -109,8 +109,13 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		return true, "auth-required: authentication is required for access"
 	}
 
+	allowedNonAuthorKinds := []int{
+		nostr.KindZap,
+		1059,
+	}
+
 	// Reject replaying of events (join, create group) by other people
-	if pubkey != event.PubKey && event.Kind != nostr.KindZap {
+	if pubkey != event.PubKey && !slices.Contains(allowedNonAuthorKinds, event.Kind) {
 		return true, "restricted: you cannot publish events on behalf of others"
 	}
 
