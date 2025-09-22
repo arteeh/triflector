@@ -53,7 +53,7 @@ func GenerateInvite(author string) string {
 func ConsumeInvite(claim string) string {
 	author := string(GetItem("invite", claim))
 
-	if author != "" {
+	if RELAY_CONSUME_CLAIMS && author != "" {
 		DeleteItem("invite", claim)
 	}
 
