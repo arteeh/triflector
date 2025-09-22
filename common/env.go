@@ -26,6 +26,7 @@ var RELAY_RESTRICT_AUTHOR bool
 var RELAY_STRIP_SIGNATURES bool
 var RELAY_GENERATE_CLAIMS bool
 var RELAY_CONSUME_CLAIMS bool
+var RELAY_ENABLE_BLOSSOM bool
 var RELAY_ENABLE_GROUPS bool
 var GROUP_AUTO_JOIN bool
 var GROUP_AUTO_LEAVE bool
@@ -67,6 +68,7 @@ func SetupEnvironment() {
 	RELAY_STRIP_SIGNATURES = getEnv("RELAY_STRIP_SIGNATURES", "false") == "true"
 	RELAY_GENERATE_CLAIMS = getEnv("RELAY_GENERATE_CLAIMS", "false") == "true"
 	RELAY_CONSUME_CLAIMS = getEnv("RELAY_CONSUME_CLAIMS", "false") == "true"
+	RELAY_ENABLE_BLOSSOM = getEnv("RELAY_ENABLE_BLOSSOM", "false") == "true"
 	RELAY_ENABLE_GROUPS = getEnv("RELAY_ENABLE_GROUPS", "false") == "true"
 	GROUP_AUTO_JOIN = getEnv("GROUP_AUTO_JOIN", "false") == "true"
 	GROUP_AUTO_LEAVE = getEnv("GROUP_AUTO_LEAVE", "true") == "true"
