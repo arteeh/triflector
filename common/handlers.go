@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"slices"
 
@@ -86,22 +85,21 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	pubkey := khatru.GetAuthed(ctx)
 
-	// For zap receipts, authorize the zap sender instead
-	if event.Kind == nostr.KindZap {
-		senderTag := event.Tags.GetFirst([]string{"P"})
+	recipientAuthKinds := []int{
+		nostr.KindZap,
+		1059,
+	}
 
-		if senderTag != nil {
-			pubkey = senderTag.Value()
+	// For zap receipts and gift wraps, authorize the recipient. For everything else, make sure the
+	// authenticated user is the same as the event author
+	if slices.Contains(recipientAuthKinds, event.Kind) {
+		recipientTag := event.Tags.GetFirst([]string{"p"})
+
+		if recipientTag != nil {
+			pubkey = recipientTag.Value()
 		}
-
-		descriptionTag := event.Tags.GetFirst([]string{"description"})
-
-		if descriptionTag != nil {
-			var zapRequest nostr.Event
-			if err := json.Unmarshal([]byte(descriptionTag.Value()), &zapRequest); err == nil {
-				event = &zapRequest
-			}
-		}
+	} else if pubkey != event.PubKey {
+		return true, "restricted: you cannot publish events on behalf of others"
 	}
 
 	// Auth is always required to publish events
@@ -109,41 +107,9 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		return true, "auth-required: authentication is required for access"
 	}
 
-	allowedNonAuthorKinds := []int{
-		nostr.KindZap,
-		1059,
-	}
-
-	// Reject replaying of events (join, create group) by other people
-	if pubkey != event.PubKey && !slices.Contains(allowedNonAuthorKinds, event.Kind) {
-		return true, "restricted: you cannot publish events on behalf of others"
-	}
-
-	// Process relay-level join requests before anything else
-	if event.Kind == AUTH_JOIN {
-		tag := event.Tags.GetFirst([]string{"claim"})
-
-		if tag != nil {
-			claim := tag.Value()
-
-			if IsValidClaim(claim) || HasAccess(ConsumeInvite(claim)) {
-				AddUserClaim(pubkey, claim)
-			}
-
-			if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
-				return true, "restricted: failed to validate invite code"
-			}
-		}
-	}
-
-	// Relay-level access
-
-	if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
+	// Check both restrict settings since they're the same here
+	if (RELAY_RESTRICT_USER || RELAY_RESTRICT_AUTHOR) && !HasAccess(pubkey) {
 		return true, "restricted: you are not a member of this relay"
-	}
-
-	if RELAY_RESTRICT_AUTHOR && !HasAccess(pubkey) {
-		return true, "restricted: event author is not a member of this relay"
 	}
 
 	// Group-level access
