@@ -85,6 +85,23 @@ func QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, e
 func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	pubkey := khatru.GetAuthed(ctx)
 
+	// Process relay-level join requests before anything else
+	if pubkey != "" && event.Kind == AUTH_JOIN {
+		tag := event.Tags.GetFirst([]string{"claim"})
+
+		if tag != nil {
+			claim := tag.Value()
+
+			if IsValidClaim(claim) || HasAccess(ConsumeInvite(claim)) {
+				AddUserClaim(pubkey, claim)
+			}
+
+			if RELAY_RESTRICT_USER && !HasAccess(pubkey) {
+				return true, "restricted: failed to validate invite code"
+			}
+		}
+	}
+
 	recipientAuthKinds := []int{
 		nostr.KindZap,
 		1059,
@@ -98,13 +115,10 @@ func RejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		if recipientTag != nil {
 			pubkey = recipientTag.Value()
 		}
+	} else if pubkey == "" {
+		return true, "auth-required: authentication is required for access"
 	} else if pubkey != event.PubKey {
 		return true, "restricted: you cannot publish events on behalf of others"
-	}
-
-	// Auth is always required to publish events
-	if pubkey == "" {
-		return true, "auth-required: authentication is required for access"
 	}
 
 	// Check both restrict settings since they're the same here
